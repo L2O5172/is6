@@ -4,10 +4,8 @@ import type { Profile } from './types';
 
 // Constants from user-provided script
 const LIFF_ID = "2008276630-bYNjwMx7";
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxxMVosMx6u0rvfSShaepg-lZjnLkcImfGqQKczsiGL08P9vFtJpG0TbkXUZDRxMr34sw/exec";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwva5D0KzSDb1R9Z1oOwwnR74uHJ-NwRp7cAv0ERLHv_t9NYxSZnYqlwhY6fTSjgTVSLg/exec";
 const RESTAURANT_NAME = "無名牛排";
-// --- 請將此處的網址替換為您實際的點餐系統網址 ---
-const ORDERING_SYSTEM_URL = "https://your-ordering-system.com"; // <<<< 替換這裡
 
 type Status = 'initializing' | 'ready' | 'submitting' | 'success' | 'error';
 
@@ -52,7 +50,6 @@ const StatusIndicator: React.FC<StatusIndicatorProps> = ({ status, title, messag
 const App: React.FC = () => {
   const [status, setStatus] = useState<Status>('initializing');
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [phoneNumber, setPhoneNumber] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
 
   const initializeLiff = useCallback(async () => {
@@ -86,41 +83,32 @@ const App: React.FC = () => {
   }, []);
 
   const handleSubmit = async () => {
-    if (!profile || !phoneNumber.trim()) return;
+    if (!profile) return;
     setStatus('submitting');
     setError(null);
 
-    const registrationTime = new Date().toLocaleString('sv-SE');
-
-    const formData = new URLSearchParams();
-    formData.append('source', 'liff');
-    formData.append('userId', profile.userId);
-    formData.append('displayName', profile.displayName);
-    formData.append('pictureUrl', profile.pictureUrl || '');
-    formData.append('registrationTime', registrationTime);
-    formData.append('phoneNumber', phoneNumber.trim());
-
+    const payload = {
+      source: "liff",
+      customerLineId: profile.userId,
+      customerName: profile.displayName,
+      customerPictureUrl: profile.pictureUrl || "",
+    };
 
     try {
       const response = await fetch(APPS_SCRIPT_URL, {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8', // Google Apps Script quirk
+        },
+        body: JSON.stringify(payload),
         mode: 'cors',
       });
 
       if (!response.ok) {
-        let errorBody = '';
-        try {
-          errorBody = await response.text();
-        } catch (e) {
-          // ignore if can't read body
-        }
-        throw new Error(`伺服器回應錯誤: ${response.statusText}. ${errorBody}`);
+        throw new Error(`伺服器回應錯誤: ${response.statusText}`);
       }
-      
-      const resultText = await response.text();
-      const result = JSON.parse(resultText);
 
+      const result = await response.json();
 
       if (result.status === 'success') {
         setStatus('success');
@@ -138,8 +126,6 @@ const App: React.FC = () => {
   const handleClose = () => {
     window.liff.closeWindow();
   };
-  
-  const isSubmitDisabled = status === 'submitting' || !phoneNumber.trim();
 
   const renderContent = () => {
     switch (status) {
@@ -156,9 +142,9 @@ const App: React.FC = () => {
         return (
           <div className="w-full max-w-sm mx-auto text-center">
             <h1 className="text-2xl font-bold text-amber-300 mb-2">歡迎加入 {RESTAURANT_NAME}</h1>
-            <p className="text-gray-400 mb-8">請確認您的 LINE 資料並輸入手機號碼以完成綁定</p>
+            <p className="text-gray-400 mb-8">請確認您的 LINE 資料以完成會員綁定</p>
             {profile && (
-              <div className="bg-gray-800 rounded-lg p-6 flex flex-col items-center shadow-lg mb-6">
+              <div className="bg-gray-800 rounded-lg p-6 flex flex-col items-center shadow-lg mb-8">
                 <img
                   src={profile.pictureUrl || `https://picsum.photos/seed/${profile.userId}/100`}
                   alt="Profile"
@@ -168,23 +154,10 @@ const App: React.FC = () => {
                 <p className="text-xs text-gray-500 mt-2 break-all">{profile.userId}</p>
               </div>
             )}
-            <div className="mb-8">
-               <label htmlFor="phone" className="block text-sm font-medium text-gray-300 mb-2 text-left">手機號碼</label>
-               <input
-                type="tel"
-                id="phone"
-                name="phone"
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-                placeholder="請輸入您的手機號碼"
-                className="w-full bg-gray-700 border border-gray-600 text-white rounded-lg p-3 focus:ring-amber-500 focus:border-amber-500 transition"
-                required
-               />
-            </div>
             <button
               onClick={handleSubmit}
-              disabled={isSubmitDisabled}
-              className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-gray-600 disabled:cursor-not-allowed text-gray-900 font-bold py-3 px-4 rounded-lg transition-colors duration-300 flex items-center justify-center space-x-2 shadow-lg"
+              disabled={status === 'submitting'}
+              className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-gray-600 text-gray-900 font-bold py-3 px-4 rounded-lg transition-colors duration-300 flex items-center justify-center space-x-2 shadow-lg"
             >
               {status === 'submitting' && <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-900"></div>}
               <span>{status === 'submitting' ? '傳送資料中...' : '確認綁定'}</span>
@@ -194,25 +167,17 @@ const App: React.FC = () => {
 
       case 'success':
         return (
-          <div className="w-full max-w-sm mx-auto text-center">
+          <div className="w-full max-w-sm mx-auto">
             <StatusIndicator 
               status="success" 
               title="綁定成功！"
-              message="感謝您完成綁定！點擊下方按鈕即可開始點餐。"
+              message="感謝您的加入！您現在可以關閉此頁面，並在 LINE 聊天室中開始點餐。"
             />
-            <a
-              href={ORDERING_SYSTEM_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-8 w-full bg-amber-500 hover:bg-amber-600 text-gray-900 font-bold py-3 px-4 rounded-lg transition-colors duration-300 shadow-lg inline-block"
-            >
-              開始點餐
-            </a>
             <button
               onClick={handleClose}
-              className="mt-4 text-gray-400 hover:text-white transition-colors duration-300"
+              className="mt-8 w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg transition-colors duration-300 shadow-lg"
             >
-              稍後再說 (關閉)
+              關閉視窗
             </button>
           </div>
         );

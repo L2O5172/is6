@@ -50,6 +50,7 @@ const StatusIndicator: React.FC<StatusIndicatorProps> = ({ status, title, messag
 const App: React.FC = () => {
   const [status, setStatus] = useState<Status>('initializing');
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [phoneNumber, setPhoneNumber] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
 
   const initializeLiff = useCallback(async () => {
@@ -83,7 +84,7 @@ const App: React.FC = () => {
   }, []);
 
   const handleSubmit = async () => {
-    if (!profile) return;
+    if (!profile || !phoneNumber.trim()) return;
     setStatus('submitting');
     setError(null);
 
@@ -95,6 +96,7 @@ const App: React.FC = () => {
     formData.append('displayName', profile.displayName);
     formData.append('pictureUrl', profile.pictureUrl || '');
     formData.append('registrationTime', registrationTime);
+    formData.append('phoneNumber', phoneNumber.trim());
 
 
     try {
@@ -105,7 +107,6 @@ const App: React.FC = () => {
       });
 
       if (!response.ok) {
-        // Try to get more error details from the response body if available
         let errorBody = '';
         try {
           errorBody = await response.text();
@@ -135,6 +136,8 @@ const App: React.FC = () => {
   const handleClose = () => {
     window.liff.closeWindow();
   };
+  
+  const isSubmitDisabled = status === 'submitting' || !phoneNumber.trim();
 
   const renderContent = () => {
     switch (status) {
@@ -151,9 +154,9 @@ const App: React.FC = () => {
         return (
           <div className="w-full max-w-sm mx-auto text-center">
             <h1 className="text-2xl font-bold text-amber-300 mb-2">歡迎加入 {RESTAURANT_NAME}</h1>
-            <p className="text-gray-400 mb-8">請確認您的 LINE 資料以完成會員綁定</p>
+            <p className="text-gray-400 mb-8">請確認您的 LINE 資料並輸入手機號碼以完成綁定</p>
             {profile && (
-              <div className="bg-gray-800 rounded-lg p-6 flex flex-col items-center shadow-lg mb-8">
+              <div className="bg-gray-800 rounded-lg p-6 flex flex-col items-center shadow-lg mb-6">
                 <img
                   src={profile.pictureUrl || `https://picsum.photos/seed/${profile.userId}/100`}
                   alt="Profile"
@@ -163,10 +166,23 @@ const App: React.FC = () => {
                 <p className="text-xs text-gray-500 mt-2 break-all">{profile.userId}</p>
               </div>
             )}
+            <div className="mb-8">
+               <label htmlFor="phone" className="block text-sm font-medium text-gray-300 mb-2 text-left">手機號碼</label>
+               <input
+                type="tel"
+                id="phone"
+                name="phone"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                placeholder="請輸入您的手機號碼"
+                className="w-full bg-gray-700 border border-gray-600 text-white rounded-lg p-3 focus:ring-amber-500 focus:border-amber-500 transition"
+                required
+               />
+            </div>
             <button
               onClick={handleSubmit}
-              disabled={status === 'submitting'}
-              className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-gray-600 text-gray-900 font-bold py-3 px-4 rounded-lg transition-colors duration-300 flex items-center justify-center space-x-2 shadow-lg"
+              disabled={isSubmitDisabled}
+              className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-gray-600 disabled:cursor-not-allowed text-gray-900 font-bold py-3 px-4 rounded-lg transition-colors duration-300 flex items-center justify-center space-x-2 shadow-lg"
             >
               {status === 'submitting' && <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-900"></div>}
               <span>{status === 'submitting' ? '傳送資料中...' : '確認綁定'}</span>

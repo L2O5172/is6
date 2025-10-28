@@ -92,10 +92,10 @@ const App: React.FC = () => {
 
     const payload = {
       source: "liff",
-      customerLineId: profile.userId,
-      customerName: profile.displayName,
-      customerPictureUrl: profile.pictureUrl || "",
-      registrationTime: registrationTime, // Add registration time
+      userId: profile.userId,
+      displayName: profile.displayName,
+      pictureUrl: profile.pictureUrl || "",
+      registrationTime: registrationTime,
     };
 
     try {

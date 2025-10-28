@@ -6,6 +6,8 @@ import type { Profile } from './types';
 const LIFF_ID = "2008276630-bYNjwMx7";
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxxMVosMx6u0rvfSShaepg-lZjnLkcImfGqQKczsiGL08P9vFtJpG0TbkXUZDRxMr34sw/exec";
 const RESTAURANT_NAME = "無名牛排";
+// --- 請將此處的網址替換為您實際的點餐系統網址 ---
+const ORDERING_SYSTEM_URL = "https://your-ordering-system.com"; // <<<< 替換這裡
 
 type Status = 'initializing' | 'ready' | 'submitting' | 'success' | 'error';
 
@@ -192,17 +194,25 @@ const App: React.FC = () => {
 
       case 'success':
         return (
-          <div className="w-full max-w-sm mx-auto">
+          <div className="w-full max-w-sm mx-auto text-center">
             <StatusIndicator 
               status="success" 
               title="綁定成功！"
-              message="感謝您的加入！您現在可以關閉此頁面，並在 LINE 聊天室中開始點餐。"
+              message="感謝您完成綁定！點擊下方按鈕即可開始點餐。"
             />
+            <a
+              href={ORDERING_SYSTEM_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-8 w-full bg-amber-500 hover:bg-amber-600 text-gray-900 font-bold py-3 px-4 rounded-lg transition-colors duration-300 shadow-lg inline-block"
+            >
+              開始點餐
+            </a>
             <button
               onClick={handleClose}
-              className="mt-8 w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg transition-colors duration-300 shadow-lg"
+              className="mt-4 text-gray-400 hover:text-white transition-colors duration-300"
             >
-              關閉視窗
+              稍後再說 (關閉)
             </button>
           </div>
         );

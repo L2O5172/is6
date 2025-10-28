@@ -1,0 +1,5 @@
+{
+  "name": "Copy of 無名牛排會員綁定w",
+  "description": "一個 LIFF 應用程式，用於掃描 QR Code 後，獲取 LINE 用戶資料並將其發送到 Google Apps Script 進行會員綁定。",
+  "requestFramePermissions": []
+}

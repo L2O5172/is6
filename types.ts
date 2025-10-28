@@ -12,6 +12,8 @@ export interface Liff {
   login(loginConfig?: { redirectUri?: string; }): void;
   getProfile(): Promise<Profile>;
   closeWindow(): void;
+  // FIX: Add missing `isInClient` method to the Liff interface.
+  isInClient(): boolean;
 }
 
 declare global {

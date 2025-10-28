@@ -87,32 +87,37 @@ const App: React.FC = () => {
     setStatus('submitting');
     setError(null);
 
-    // Get current timestamp in a spreadsheet-friendly format (YYYY-MM-DD HH:MM:SS)
     const registrationTime = new Date().toLocaleString('sv-SE');
 
-    const payload = {
-      source: "liff",
-      userId: profile.userId,
-      displayName: profile.displayName,
-      pictureUrl: profile.pictureUrl || "",
-      registrationTime: registrationTime,
-    };
+    const formData = new URLSearchParams();
+    formData.append('source', 'liff');
+    formData.append('userId', profile.userId);
+    formData.append('displayName', profile.displayName);
+    formData.append('pictureUrl', profile.pictureUrl || '');
+    formData.append('registrationTime', registrationTime);
+
 
     try {
       const response = await fetch(APPS_SCRIPT_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'text/plain;charset=utf-8', // Google Apps Script quirk
-        },
-        body: JSON.stringify(payload),
+        body: formData,
         mode: 'cors',
       });
 
       if (!response.ok) {
-        throw new Error(`伺服器回應錯誤: ${response.statusText}`);
+        // Try to get more error details from the response body if available
+        let errorBody = '';
+        try {
+          errorBody = await response.text();
+        } catch (e) {
+          // ignore if can't read body
+        }
+        throw new Error(`伺服器回應錯誤: ${response.statusText}. ${errorBody}`);
       }
+      
+      const resultText = await response.text();
+      const result = JSON.parse(resultText);
 
-      const result = await response.json();
 
       if (result.status === 'success') {
         setStatus('success');

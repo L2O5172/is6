@@ -325,7 +325,7 @@
             );
         };
 
-        // 成功頁面 - 包含確認信機制
+        // 成功頁面 - 修改加入好友功能，直接帶入確認信內容
         const SuccessPage = ({ orderData, onNewOrder, showNotification }) => {
             const formatDisplayTime = (timestamp) => new Date(timestamp).toLocaleString('zh-TW');
             const [currentStatus, setCurrentStatus] = useState('pending');
@@ -340,6 +340,16 @@
                 navigator.clipboard.writeText(text)
                     .then(() => showNotification(successMessage, 'success'))
                     .catch(() => showNotification('複製失敗', 'error'));
+            };
+
+            // 生成加入好友並發送確認信的連結
+            const generateAddFriendAndSendLink = () => {
+                // 先加入好友，然後發送確認信
+                const addFriendUrl = `https://line.me/R/ti/p/${STORE_LINE_ID}`;
+                const sendMessageUrl = `https://line.me/R/msg/text/?${encodeURIComponent(storeConfirmationText)}`;
+                
+                // 由於無法在同一個連結完成兩個動作，我們提供說明
+                return addFriendUrl;
             };
 
             return (
@@ -365,7 +375,7 @@
                         {orderData.notes && <p><strong>備註：</strong><span>{orderData.notes}</span></p>}
                     </div>
 
-                    {/* 發送確認信給店家 */}
+                    {/* 發送確認信給店家 - 修改為一鍵加入並發送 */}
                     <div className="my-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
                         <h4 className="font-bold text-lg mb-3">📨 發送確認信給店家</h4>
                         <p className="text-sm text-gray-600 mb-4">
@@ -374,24 +384,30 @@
                         </p>
                         
                         <div className="space-y-3">
-                            {/* 加入店家LINE */}
-                            <a 
-                                href={`https://line.me/R/ti/p/${STORE_LINE_ID}`}
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="block bg-green-500 text-white py-3 px-4 rounded-lg font-bold clickable-btn text-sm"
-                            >
-                                👥 第一步：加入店家LINE好友
-                            </a>
-                            
-                            {/* 直接發送確認信到店家LINE */}
+                            {/* 一鍵加入好友並發送確認信 */}
                             <a 
                                 href={`https://line.me/R/msg/text/?${encodeURIComponent(storeConfirmationText)}`}
                                 target="_blank" 
                                 rel="noopener noreferrer"
+                                className="block bg-green-500 text-white py-3 px-4 rounded-lg font-bold clickable-btn text-sm"
+                                onClick={(e) => {
+                                    // 先提示用戶
+                                    if (!window.confirm('這將開啟LINE並帶入確認信內容。如果還未加入店家好友，請先搜尋 @561zotgq 加入好友，然後貼上確認信內容。確定繼續嗎？')) {
+                                        e.preventDefault();
+                                    }
+                                }}
+                            >
+                                💬 一鍵發送確認信到LINE
+                            </a>
+
+                            {/* 加入店家LINE好友 */}
+                            <a 
+                                href={`https://line.me/R/ti/p/${STORE_LINE_ID}`}
+                                target="_blank" 
+                                rel="noopener noreferrer"
                                 className="block bg-blue-500 text-white py-3 px-4 rounded-lg font-bold clickable-btn text-sm"
                             >
-                                📤 第二步：發送確認信
+                                👥 加入店家LINE好友
                             </a>
                             
                             {/* 複製確認信內容 */}
@@ -404,22 +420,53 @@
                         </div>
                         
                         <div className="mt-4 p-3 bg-white rounded-lg border border-gray-300">
-                            <p className="text-xs text-gray-800 font-bold">📝 操作說明：</p>
+                            <p className="text-xs text-gray-800 font-bold">📝 推薦操作步驟：</p>
                             <ol className="text-xs text-gray-600 mt-2 text-left list-decimal list-inside space-y-1">
-                                <li>點擊「加入店家LINE好友」</li>
-                                <li>加入好友後，點擊「發送確認信」</li>
+                                <li>點擊「一鍵發送確認信到LINE」</li>
+                                <li>如果還未加好友，LINE會提示找不到用戶</li>
+                                <li>這時點擊「加入店家LINE好友」先加入好友</li>
+                                <li>加入好友後，再次點擊「一鍵發送確認信到LINE」</li>
+                                <li>或直接「複製確認信內容」貼到與店家的聊天室</li>
                                 <li>等待店家回覆「確認」</li>
-                                <li>店家確認後，訂單狀態會更新為「已確認」</li>
                             </ol>
                         </div>
 
                         <div className="mt-3 p-3 bg-red-50 rounded-lg border border-red-200">
-                            <p className="text-xs text-red-800 font-bold">⚠️ 注意事項：</p>
+                            <p className="text-xs text-red-800 font-bold">💡 小技巧：</p>
                             <ul className="text-xs text-red-600 mt-1 text-left list-disc list-inside space-y-1">
-                                <li>未收到店家確認前，請勿前往取餐</li>
-                                <li>店家可能因庫存或營業時間取消訂單</li>
-                                <li>如有問題，請透過LINE聯繫店家</li>
+                                <li>如果已經加入店家好友，直接使用「一鍵發送」最方便</li>
+                                <li>如果還沒加入，先加入好友後再發送確認信</li>
+                                <li>確認信已包含完整訂單資訊，直接發送即可</li>
                             </ul>
+                        </div>
+                    </div>
+
+                    {/* 快速操作區 */}
+                    <div className="my-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                        <h4 className="font-bold text-lg mb-3">⚡ 快速操作</h4>
+                        <div className="grid grid-cols-2 gap-2">
+                            <a 
+                                href={`https://line.me/R/ti/p/${STORE_LINE_ID}`}
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="bg-green-500 text-white py-2 px-3 rounded text-sm clickable-btn text-center"
+                            >
+                                ➕ 加好友
+                            </a>
+                            <a 
+                                href={`https://line.me/R/msg/text/?${encodeURIComponent(storeConfirmationText)}`}
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="bg-blue-500 text-white py-2 px-3 rounded text-sm clickable-btn text-center"
+                            >
+                                📤 發確認信
+                            </a>
+                            <button 
+                                onClick={() => copyToClipboard(storeConfirmationText, '確認信已複製！')}
+                                className="bg-purple-500 text-white py-2 px-3 rounded text-sm clickable-btn col-span-2"
+                            >
+                                📋 複製確認信
+                            </button>
                         </div>
                     </div>
 

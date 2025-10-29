@@ -55,7 +55,7 @@
         const LIFF_ID = '2008316489-6nMjb0KX';
         const API_ENDPOINT = 'https://script.google.com/macros/s/AKfycbxR1gzQgV1jq8DUhYX8EY0EmA6i2PBnjo_IZJUuwRgj7Ggjgro8Mdbnic7ZdhIIc2B1/exec';
         const DELIVERY_FEE = 30;
-        const STORE_LINE_ID = '@561zotgq'; // 店家 LINE ID
+        const STORE_LINE_ID = '@561zotgq';
 
         // 默認菜單
         const DEFAULT_MENU = [
@@ -70,7 +70,6 @@
         const apiService = {
             async request(payload) {
                 try {
-                    console.log('發送請求:', payload.action);
                     const response = await fetch(API_ENDPOINT, {
                         method: 'POST',
                         headers: { 
@@ -84,7 +83,6 @@
                     }
                     
                     const result = await response.json();
-                    console.log('收到回應:', result);
                     return result;
                 } catch (error) {
                     console.error('API 請求失敗:', error);
@@ -100,7 +98,6 @@
                     }
                     return DEFAULT_MENU;
                 } catch (error) {
-                    console.warn('獲取菜單失敗，使用默認菜單:', error);
                     return DEFAULT_MENU;
                 }
             },
@@ -117,10 +114,8 @@
                     pickupTime: orderData.pickupTime,
                     deliveryAddress: orderData.deliveryAddress.trim(),
                     notes: orderData.notes.trim(),
-                    status: 'pending' // 預設為待確認狀態
+                    status: 'pending'
                 };
-
-                console.log('提交訂單數據:', orderDataForServer);
 
                 const result = await this.request({ 
                     action: 'createOrder', 
@@ -133,38 +128,6 @@
                 }
 
                 return result;
-            },
-
-            async getOrders(params) {
-                const searchParams = {
-                    ...params,
-                    customerPhone: params.customerPhone ? params.customerPhone.trim() : '',
-                    exactMatch: true
-                };
-
-                const result = await this.request({ 
-                    action: 'getOrders', 
-                    ...searchParams 
-                });
-
-                if (!result.success) {
-                    throw new Error(result.message || '查詢失敗');
-                }
-
-                return result.data || [];
-            },
-
-            async checkOrderStatus(orderId) {
-                const result = await this.request({
-                    action: 'checkOrderStatus',
-                    orderId: orderId
-                });
-
-                if (!result.success) {
-                    throw new Error(result.message || '查詢狀態失敗');
-                }
-
-                return result.data;
             }
         };
 
@@ -192,7 +155,6 @@
                             setStatusType('success');
                         } else {
                             if (liff.isInClient()) {
-                                setLiffStatus('未登入 LINE，正在嘗試登入...');
                                 liff.login();
                             } else {
                                 setLiffStatus('請在 LINE App 中開啟以獲得完整功能。');
@@ -200,7 +162,6 @@
                             }
                         }
                     } catch (error) {
-                        console.warn('LINE 初始化失敗:', error);
                         setLiffStatus('⚠️ LINE 功能載入失敗，但您仍可訂餐。');
                         setStatusType('warning');
                     }
@@ -253,287 +214,56 @@
             );
         };
 
-        // 訂單狀態檢查組件
-        const OrderStatusChecker = ({ orderId, onStatusChange }) => {
-            const [status, setStatus] = useState('pending');
-            const [isChecking, setIsChecking] = useState(false);
-
-            const checkStatus = async () => {
-                setIsChecking(true);
-                try {
-                    const result = await apiService.checkOrderStatus(orderId);
-                    setStatus(result.status);
-                    onStatusChange(result.status);
-                } catch (error) {
-                    console.error('檢查狀態失敗:', error);
-                } finally {
-                    setIsChecking(false);
-                }
-            };
-
-            useEffect(() => {
-                // 每30秒自動檢查一次狀態
-                const interval = setInterval(checkStatus, 30000);
-                return () => clearInterval(interval);
-            }, []);
-
-            const getStatusInfo = () => {
-                const statusConfig = {
-                    'pending': { 
-                        color: 'bg-yellow-100 border-yellow-400 text-yellow-800',
-                        icon: '⏳',
-                        text: '等待店家確認',
-                        description: '已發送確認信，請等待店家回覆確認'
-                    },
-                    'confirmed': { 
-                        color: 'bg-green-100 border-green-400 text-green-800',
-                        icon: '✅',
-                        text: '訂單已確認',
-                        description: '店家已確認您的訂單，請準時取餐'
-                    },
-                    'cancelled': { 
-                        color: 'bg-red-100 border-red-400 text-red-800',
-                        icon: '❌',
-                        text: '訂單已取消',
-                        description: '店家已取消此訂單'
-                    }
-                };
-                return statusConfig[status] || statusConfig.pending;
-            };
-
-            const statusInfo = getStatusInfo();
-
-            return (
-                <div className={`p-4 rounded-lg border ${statusInfo.color} mb-4`}>
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center">
-                            <span className="text-2xl mr-3">{statusInfo.icon}</span>
-                            <div>
-                                <h3 className="font-bold">{statusInfo.text}</h3>
-                                <p className="text-sm opacity-80">{statusInfo.description}</p>
-                            </div>
-                        </div>
-                        <button 
-                            onClick={checkStatus}
-                            disabled={isChecking}
-                            className="bg-blue-500 text-white px-3 py-1 rounded text-sm disabled:bg-gray-400 clickable-btn"
-                        >
-                            {isChecking ? <LoadingSpinner /> : '刷新'}
-                        </button>
-                    </div>
-                </div>
-            );
-        };
-
-        // 成功頁面 - 改進的一鍵完成模式
+        // 成功頁面 - 極簡版本
         const SuccessPage = ({ orderData, onNewOrder, showNotification }) => {
             const formatDisplayTime = (timestamp) => new Date(timestamp).toLocaleString('zh-TW');
-            const [currentStatus, setCurrentStatus] = useState('pending');
-            const [isProcessing, setIsProcessing] = useState(false);
             
-            // 生成完整的確認信內容
-            const generateCompleteMessage = () => {
-                return `🏪 【台灣小吃店 - 訂單確認信】\n\n📋 訂單編號：${orderData.orderId}\n👤 顧客姓名：${orderData.customerName}\n📞 聯絡電話：${orderData.customerPhone}\n\n🛒 訂單內容：\n${orderData.items.map(item => `• ${item.name} x ${item.quantity} = $${item.price * item.quantity}`).join('\n')}\n\n💰 總金額：$${orderData.totalAmount}\n⏰ 取餐時間：${formatDisplayTime(orderData.pickupTime)}\n📍 ${orderData.deliveryAddress ? `外送地址：${orderData.deliveryAddress}` : '自取'}\n📝 備註：${orderData.notes || '無'}\n\n⏱️ 下單時間：${new Date().toLocaleString('zh-TW')}\n\n⚠️ 請回覆「確認」以確認此訂單\n❌ 回覆「取消」以取消此訂單\n\n💬 確認後訂單才正式成立`;
+            // 生成確認信內容
+            const generateMessage = () => {
+                return `🏪 台灣小吃店 - 訂單確認\n\n📋 訂單編號：${orderData.orderId}\n👤 顧客姓名：${orderData.customerName}\n📞 聯絡電話：${orderData.customerPhone}\n\n🛒 訂單內容：\n${orderData.items.map(item => `• ${item.name} x ${item.quantity}`).join('\n')}\n\n💰 總金額：$${orderData.totalAmount}\n⏰ 取餐時間：${formatDisplayTime(orderData.pickupTime)}\n📍 ${orderData.deliveryAddress ? `外送地址：${orderData.deliveryAddress}` : '自取'}\n📝 備註：${orderData.notes || '無'}\n\n💬 請店家確認此訂單`;
             };
 
-            // 一鍵完成：先加入好友，然後開啟聊天室帶入訊息
-            const oneClickConfirm = async () => {
-                setIsProcessing(true);
-                try {
-                    const message = generateCompleteMessage();
-                    
-                    // 步驟1: 先開啟加入好友頁面
-                    const addFriendUrl = `https://line.me/R/ti/p/${STORE_LINE_ID}`;
-                    window.open(addFriendUrl, '_blank');
-                    
-                    showNotification('已開啟加入好友頁面，請先加入好友...', 'info');
-                    
-                    // 步驟2: 3秒後自動開啟聊天室並帶入訊息
-                    setTimeout(() => {
-                        const chatUrl = `https://line.me/R/msg/text/?${encodeURIComponent(message)}`;
-                        window.open(chatUrl, '_blank');
-                        
-                        showNotification('已開啟聊天室，確認信內容已準備好，請按發送！', 'success');
-                        
-                        // 步驟3: 複製到剪貼簿作為備用
-                        navigator.clipboard.writeText(message)
-                            .then(() => {
-                                showNotification('確認信內容已複製到剪貼簿，如果聊天室沒有自動帶入，請手動貼上', 'info');
-                            })
-                            .catch(() => {
-                                console.log('複製到剪貼簿失敗');
-                            });
-                            
-                    }, 3000);
-                    
-                } catch (error) {
-                    showNotification('操作失敗，請使用備用方案', 'error');
-                } finally {
-                    setIsProcessing(false);
-                }
-            };
-
-            // 直接開啟聊天室（已加好友的情況）
-            const openChatDirectly = () => {
-                const message = generateCompleteMessage();
-                const chatUrl = `https://line.me/R/msg/text/?${encodeURIComponent(message)}`;
-                window.open(chatUrl, '_blank');
-                showNotification('已開啟聊天室，確認信內容已準備好！', 'info');
-            };
-
-            // 給客人的訂單內容
-            const customerShareText = `🍽️ 台灣小吃店 - 訂單詳細資訊\n\n📋 訂單編號：${orderData.orderId}\n👤 顧客姓名：${orderData.customerName}\n📞 聯絡電話：${orderData.customerPhone}\n\n💰 總金額：$${orderData.totalAmount}\n⏰ 取餐時間：${formatDisplayTime(orderData.pickupTime)}\n📍 ${orderData.deliveryAddress ? `外送地址：${orderData.deliveryAddress}` : '自取'}\n📝 備註：${orderData.notes || '無'}\n\n⚠️ 請務必發送確認信給店家，待店家確認後訂單才成立\n📍 取餐地址：台灣小吃店\n🕒 營業時間：10:00-21:00\n📞 店家電話：02-1234-5678`;
-
-            const copyToClipboard = (text, successMessage) => {
-                navigator.clipboard.writeText(text)
-                    .then(() => showNotification(successMessage, 'success'))
-                    .catch(() => showNotification('複製失敗', 'error'));
+            // 一鍵加入好友並分享
+            const shareToStore = () => {
+                const message = generateMessage();
+                const lineUrl = `https://line.me/R/oaMessage/${STORE_LINE_ID}/?${encodeURIComponent(message)}`;
+                window.open(lineUrl, '_blank');
             };
 
             return (
                 <div className="text-center p-5 animate-fade-in">
-                    <div className="text-6xl mb-5">📨</div>
-                    <h3 className="text-2xl font-bold text-blue-600 mb-4">訂單已暫存！</h3>
-                    <p className="text-gray-600 mb-6">請發送確認信給店家，待店家確認後訂單才正式成立</p>
+                    <div className="text-6xl mb-5">✅</div>
+                    <h3 className="text-2xl font-bold text-green-600 mb-4">訂單提交成功！</h3>
                     
-                    {/* 訂單狀態檢查 */}
-                    <OrderStatusChecker 
-                        orderId={orderData.orderId} 
-                        onStatusChange={setCurrentStatus}
-                    />
-
                     <div className="bg-gray-50 p-4 rounded-lg my-5 text-left border">
                         <p><strong>訂單編號：</strong><span className="font-mono">{orderData.orderId}</span></p>
                         <p><strong>顧客姓名：</strong><span>{orderData.customerName}</span></p>
                         <p><strong>聯絡電話：</strong><span>{orderData.customerPhone}</span></p>
                         <p><strong>總金額：</strong>$<span className="text-green-600 font-bold">{orderData.totalAmount}</span></p>
                         <p><strong>取餐時間：</strong><span>{formatDisplayTime(orderData.pickupTime)}</span></p>
-                        <p><strong>取餐方式：</strong><span>{orderData.deliveryAddress ? '外送' : '自取'}</span></p>
-                        {orderData.deliveryAddress && <p><strong>外送地址：</strong><span>{orderData.deliveryAddress}</span></p>}
-                        {orderData.notes && <p><strong>備註：</strong><span>{orderData.notes}</span></p>}
-                        
-                        {/* 訂單內容明細 */}
-                        <div className="mt-3 pt-3 border-t border-gray-200">
-                            <p className="font-bold mb-2">🛒 訂單內容：</p>
-                            {orderData.items.map((item, index) => (
-                                <div key={index} className="flex justify-between text-sm">
-                                    <span>{item.name} x {item.quantity}</span>
-                                    <span>${item.price * item.quantity}</span>
-                                </div>
-                            ))}
-                        </div>
                     </div>
 
-                    {/* 一鍵完成發送確認信 */}
-                    <div className="my-6 p-4 bg-green-50 rounded-lg border border-green-200">
-                        <h4 className="font-bold text-lg mb-3">🚀 自動發送確認信</h4>
-                        <p className="text-sm text-gray-600 mb-4">
-                            點擊下方按鈕，自動完成加入好友和發送確認信
-                        </p>
-                        
+                    {/* 只有一個主要按鈕 */}
+                    <div className="my-6">
                         <button 
-                            onClick={oneClickConfirm}
-                            disabled={isProcessing}
-                            className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-6 rounded-lg text-lg disabled:bg-gray-400 clickable-btn mb-3 flex items-center justify-center"
+                            onClick={shareToStore}
+                            className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-6 rounded-lg text-lg clickable-btn"
                         >
-                            {isProcessing ? <LoadingSpinner /> : '💬 自動加入好友並發送確認信'}
-                        </button>
-
-                        <div className="text-xs text-gray-500 space-y-1">
-                            <p>📝 將會：1. 開啟加入好友頁面 → 2. 自動開啟聊天室帶入確認信</p>
-                            <p>⏰ 加入好友後請等待3秒，系統會自動開啟聊天室</p>
-                        </div>
-                    </div>
-
-                    {/* 快速選項 */}
-                    <div className="my-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                        <h4 className="font-bold text-lg mb-3">⚡ 快速選項</h4>
-                        <p className="text-sm text-gray-600 mb-4">根據您的情況選擇合適的方式</p>
-                        
-                        <div className="space-y-3">
-                            {/* 已加好友的直接發送 */}
-                            <button 
-                                onClick={openChatDirectly}
-                                className="w-full bg-blue-500 text-white py-3 px-4 rounded-lg font-bold clickable-btn text-sm"
-                            >
-                                💬 已加好友，直接發送確認信
-                            </button>
-                            
-                            {/* 複製確認信內容 */}
-                            <button 
-                                onClick={() => copyToClipboard(generateCompleteMessage(), '確認信已複製！請貼到店家LINE')}
-                                className="w-full bg-purple-500 text-white py-3 px-4 rounded-lg font-bold clickable-btn text-sm"
-                            >
-                                📋 複製確認信內容（手動貼上）
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* 操作說明 */}
-                    <div className="my-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-                        <h4 className="font-bold text-lg mb-3">📝 操作說明</h4>
-                        <div className="text-left space-y-2 text-sm">
-                            <div className="flex items-start">
-                                <span className="bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs mr-2 flex-shrink-0">1</span>
-                                <p>點擊「自動加入好友並發送確認信」</p>
-                            </div>
-                            <div className="flex items-start">
-                                <span className="bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs mr-2 flex-shrink-0">2</span>
-                                <p>在開啟的頁面中加入店家為好友</p>
-                            </div>
-                            <div className="flex items-start">
-                                <span className="bg-purple-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs mr-2 flex-shrink-0">3</span>
-                                <p>等待3秒，系統會自動開啟聊天室並帶入確認信內容</p>
-                            </div>
-                            <div className="flex items-start">
-                                <span className="bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs mr-2 flex-shrink-0">4</span>
-                                <p>在聊天室中按下「發送」按鈕</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* 儲存訂單資訊 */}
-                    <div className="my-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                        <h4 className="font-bold text-lg mb-3">💾 儲存訂單資訊</h4>
-                        
-                        <div className="space-y-3">
-                            <a 
-                                href={`https://line.me/R/msg/text/?${encodeURIComponent(customerShareText)}`} 
-                                target="_blank" 
-                                rel="noopener noreferrer" 
-                                className="block bg-[#06c755] text-white py-3 px-4 rounded-lg font-bold clickable-btn text-sm"
-                            >
-                                💬 分享到自己的LINE
-                            </a>
-                            
-                            <button 
-                                onClick={() => copyToClipboard(customerShareText, '訂單資訊已複製！')}
-                                className="w-full bg-gray-500 text-white py-3 px-4 rounded-lg font-bold clickable-btn text-sm"
-                            >
-                                📝 複製訂單資訊
-                            </button>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                        <button 
-                            onClick={onNewOrder}
-                            className="bg-green-600 text-white py-3 px-4 rounded-lg clickable-btn"
-                        >
-                            📝 再訂一單
-                        </button>
-                        <button 
-                            onClick={() => window.location.reload()}
-                            className="bg-blue-600 text-white py-3 px-4 rounded-lg clickable-btn"
-                        >
-                            🔄 刷新狀態
+                            💬 加入店家LINE並發送訂單
                         </button>
                     </div>
+
+                    <button 
+                        onClick={onNewOrder}
+                        className="bg-gray-500 text-white py-3 px-8 rounded-lg mt-4 clickable-btn"
+                    >
+                        再訂一單
+                    </button>
                 </div>
             );
         };
 
-        // 菜品項目組件（保持不變）
+        // 菜品項目組件
         const MenuItem = ({ item, cartQuantity, onUpdateCart }) => {
             return (
                 <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm mb-3">
@@ -575,8 +305,8 @@
             );
         };
 
-        // 訂餐頁面（保持不變）
-        const OrderPage = ({ menuItems, onSubmitOrder, showNotification, onViewHistory }) => {
+        // 訂餐頁面
+        const OrderPage = ({ menuItems, onSubmitOrder, showNotification }) => {
             const { profile, idToken, liffStatus, statusType } = useLiff();
             const [cart, setCart] = useState([]);
             const [isLoading, setIsLoading] = useState(false);
@@ -746,10 +476,6 @@
                 <div className="animate-fade-in">
                     <div className={`p-3 rounded-lg text-sm text-center border ${statusClasses[statusType]}`}>{liffStatus}</div>
                     
-                    <button onClick={onViewHistory} className="w-full text-center p-2.5 border border-blue-500 text-blue-600 rounded-md text-sm hover:bg-blue-500 hover:text-white transition-colors duration-200 mt-4 clickable-btn">
-                        🕒 查詢歷史訂單
-                    </button>
-                    
                     <div className="space-y-4 mt-4">
                         <div>
                             <label className="block mb-2 font-bold text-gray-700 text-sm">姓名 <span className="text-red-500">*</span></label>
@@ -772,7 +498,6 @@
                                 className={`w-full p-3 border rounded-lg text-sm focus:ring-green-500 focus:border-green-500 ${phoneError ? 'border-red-500' : 'border-gray-300'}`}
                             />
                             {phoneError && <p className="text-red-500 text-xs mt-1">{phoneError}</p>}
-                            <p className="text-xs text-gray-500 mt-1">請輸入09開頭的10位手機號碼</p>
                         </div>
                         
                         <div>
@@ -802,7 +527,6 @@
                                 ))}
                             </select>
                             {timeError && <p className="text-red-500 text-xs mt-1">{timeError}</p>}
-                            <p className="text-xs text-gray-500 mt-1">營業時間: 10:00 - 21:00</p>
                         </div>
                         
                         <div>
@@ -814,7 +538,6 @@
                                 placeholder="如需外送請填寫地址" 
                                 className="w-full p-3 border border-gray-300 rounded-lg text-sm focus:ring-green-500 focus:border-green-500"
                             />
-                            <p className="text-xs text-gray-500 mt-1">※ 填寫地址將計算 ${DELIVERY_FEE} 外送費</p>
                         </div>
                         
                         <div>
@@ -850,7 +573,7 @@
                                     🛒 訂單明細 ({cart.reduce((sum, item) => sum + item.quantity, 0)} 項)
                                 </h2>
                                 <button onClick={clearCart} className="text-xs bg-red-100 text-red-600 hover:bg-red-500 hover:text-white font-semibold py-1 px-3 rounded-full clickable-btn">
-                                    🗑️ 清空
+                                    清空
                                 </button>
                             </div>
                             
@@ -884,14 +607,6 @@
                             <span>${totalAmount}</span>
                         </div>
                     </div>
-
-                    {/* 重要提醒 */}
-                    <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                        <p className="text-sm text-blue-800 text-center">
-                            <span className="font-bold">🚀 一鍵完成：</span><br/>
-                            下單後只需點擊一次，自動完成加入好友和發送確認信
-                        </p>
-                    </div>
                     
                     <div className="mt-6">
                         <button 
@@ -899,14 +614,14 @@
                             disabled={cart.length === 0 || isLoading}
                             className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg text-lg disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center clickable-btn"
                         >
-                            {isLoading ? <><LoadingSpinner /><span>處理中...</span></> : <span>📨 送出訂單（一鍵確認）</span>}
+                            {isLoading ? <><LoadingSpinner /><span>處理中...</span></> : <span>✅ 送出訂單</span>}
                         </button>
                     </div>
                 </div>
             );
         };
 
-        // 主應用組件（保持不變）
+        // 主應用組件
         const App = () => {
             const [view, setView] = useState('order');
             const [submittedOrder, setSubmittedOrder] = useState(null);
@@ -942,7 +657,7 @@
                     };
                     setSubmittedOrder(finalOrderData);
                     setView('success');
-                    showNotification('訂單已暫存！請發送確認信給店家');
+                    showNotification('訂單提交成功！');
                 } catch (error) {
                     showNotification(`訂單提交失敗：${error.message}`, 'error');
                     throw error;
@@ -965,25 +680,19 @@
                 }
 
                 switch(view) {
-                    case 'history':
-                        return <HistoryPage onBack={() => setView('order')} showNotification={showNotification} />;
                     case 'success':
                         return submittedOrder && <SuccessPage orderData={submittedOrder} onNewOrder={handleNewOrder} showNotification={showNotification} />;
                     default:
-                        return <OrderPage menuItems={menuItems} onSubmitOrder={handleSubmitOrder} showNotification={showNotification} onViewHistory={() => setView('history')} />;
+                        return <OrderPage menuItems={menuItems} onSubmitOrder={handleSubmitOrder} showNotification={showNotification} />;
                 }
             };
 
             return (
                 <div className="p-4 min-h-screen flex items-center justify-center">
                     <div className="container max-w-md mx-auto bg-white rounded-2xl shadow-2xl overflow-hidden">
-                        <div className="bg-[#fff3cd] border border-[#ffeaa7] rounded-t-2xl p-2.5 text-xs text-center text-[#856404]">
-                            <span role="img" aria-label="lock">🔒</span> 安全訂餐系統 - 一鍵確認模式
-                        </div>
-
                         <header className="bg-green-500 text-white p-5 text-center relative">
                             <h1 className="text-2xl font-bold mb-1">🍜 台灣小吃店</h1>
-                            <p className="text-sm opacity-90">LINE 快速訂餐 - 一鍵確認</p>
+                            <p className="text-sm opacity-90">LINE 快速訂餐</p>
                         </header>
 
                         <main className="p-5 space-y-4">
@@ -998,7 +707,6 @@
                         
                         <footer className="bg-gray-100 p-4 text-center text-xs text-gray-500 border-t border-gray-200">
                             <p>📍 營業時間: 10:00 - 21:00 | 📞 聯絡電話: 02-1234-5678</p>
-                            <p className="mt-1">💬 店家LINE: {STORE_LINE_ID} (一鍵加入並確認)</p>
                         </footer>
                     </div>
                 </div>

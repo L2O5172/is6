@@ -149,12 +149,12 @@
             }
         };
 
-        // LINE LIFF Hook
+        // LINE LIFF Hook - 移除警告訊息
         const useLiff = () => {
             const [profile, setProfile] = useState(null);
             const [idToken, setIdToken] = useState(null);
             const [isLoggedIn, setIsLoggedIn] = useState(false);
-            const [liffStatus, setLiffStatus] = useState('🔄 初始化 LINE 功能中...');
+            const [liffStatus, setLiffStatus] = useState('');
             const [statusType, setStatusType] = useState('info');
 
             useEffect(() => {
@@ -173,25 +173,28 @@
                             setStatusType('success');
                         } else {
                             if (liff.isInClient()) {
-                                setLiffStatus('未登入 LINE，正在嘗試登入...');
+                                // 在 LINE App 中但未登入，靜默登入
                                 liff.login();
                             } else {
-                                setLiffStatus('請在 LINE App 中開啟以獲得完整功能。');
-                                setStatusType('warning');
+                                // 不在 LINE App 中，不顯示任何警告訊息
+                                setLiffStatus('');
+                                setStatusType('info');
                             }
                         }
                     } catch (error) {
                         console.warn('LINE 初始化失敗:', error);
-                        setLiffStatus('⚠️ LINE 功能載入失敗，但您仍可訂餐。');
-                        setStatusType('warning');
+                        // 不顯示錯誤訊息
+                        setLiffStatus('');
+                        setStatusType('info');
                     }
                 };
                 
                 if (window.liff) {
                     initializeLiff();
                 } else {
-                    setLiffStatus('⚠️ LINE SDK 載入失敗，但您仍可訂餐。');
-                    setStatusType('warning');
+                    // LINE SDK 載入失敗也不顯示訊息
+                    setLiffStatus('');
+                    setStatusType('info');
                 }
             }, []);
 
@@ -305,7 +308,7 @@
             );
         };
 
-        // 成功頁面 - 簡化為分享畫面
+        // 成功頁面
         const SuccessPage = ({ orderData, onNewOrder, showNotification }) => {
             const formatDisplayTime = (timestamp) => new Date(timestamp).toLocaleString('zh-TW');
             const [currentStatus, setCurrentStatus] = useState('pending');
@@ -458,7 +461,7 @@
         };
 
         // 訂餐頁面
-        const OrderPage = ({ menuItems, onSubmitOrder, showNotification, onViewHistory }) => {
+        const OrderPage = ({ menuItems, onSubmitOrder, showNotification }) => {
             const { profile, idToken, liffStatus, statusType } = useLiff();
             const [cart, setCart] = useState([]);
             const [isLoading, setIsLoading] = useState(false);
@@ -614,6 +617,7 @@
                 }
             };
 
+            // 只有在有歡迎訊息時才顯示
             const statusClasses = { 
                 info: 'bg-blue-100 border-blue-400 text-blue-800', 
                 success: 'bg-green-100 border-green-400 text-green-800', 
@@ -626,20 +630,21 @@
 
             return (
                 <div className="animate-fade-in">
-                    <div className={`p-3 rounded-lg text-sm text-center border ${statusClasses[statusType]}`}>{liffStatus}</div>
+                    {/* 只有在有歡迎訊息時才顯示狀態 */}
+                    {liffStatus && (
+                        <div className={`p-3 rounded-lg text-sm text-center border ${statusClasses[statusType]} mb-4`}>
+                            {liffStatus}
+                        </div>
+                    )}
                     
-                    <button onClick={onViewHistory} className="w-full text-center p-2.5 border border-blue-500 text-blue-600 rounded-md text-sm hover:bg-blue-500 hover:text-white transition-colors duration-200 mt-4 clickable-btn">
-                        🕒 查詢歷史訂單
-                    </button>
-                    
-                    <div className="space-y-4 mt-4">
+                    <div className="space-y-4">
                         <div>
                             <label className="block mb-2 font-bold text-gray-700 text-sm">姓名 <span className="text-red-500">*</span></label>
                             <input 
                                 type="text" 
                                 value={customerName} 
                                 onChange={(e) => setCustomerName(e.target.value)} 
-                                placeholder="自動帶入 LINE 名稱" 
+                                placeholder="請輸入姓名" 
                                 className="w-full p-3 border border-gray-300 rounded-lg text-sm focus:ring-green-500 focus:border-green-500"
                             />
                         </div>
